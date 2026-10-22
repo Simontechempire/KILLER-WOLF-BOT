@@ -1,6 +1,6 @@
 {
   "name": "killer-wolf-xmd",
-  "version": "2.0.0-pro-max",
+  "version": "3.0.0-final-fix",
   "description": "KILLER WOLF XMD - 100 Commands REAL - Owner 2349166265317",
   "main": "index.js",
   "type": "commonjs",
@@ -9,7 +9,7 @@
     "dev": "nodemon index.js"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": "20.x"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.18",
