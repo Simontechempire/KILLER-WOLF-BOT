@@ -1,13 +1,9 @@
 # 🐺 KILLER WOLF BOT
-# 🐺⚡ KILLER WOLF BOT
+
 
 <p align="center">
   <img src="https://i.ibb.co/ynjDCV9L/your-image-name.jpg" width="600"/>
 </p>
-![Killer Wolf](https://raw.githubusercontent.com/YOUR-USERNAME/YOUR-REPO/main/assets/killer-wolf.jpg)
-
-or 
-
 ![Killer Wolf](./assets/killer-wolf.jpg)
 > Owner: 2349166265317 | Simon tech inc | Prefix: / | Host: Render + Railway
 
