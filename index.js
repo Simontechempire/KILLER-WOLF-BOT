@@ -1,3 +1,4 @@
+if(!global.crypto){ try{ global.crypto = require('crypto').webcrypto }catch{} }
 // 🐺👑 KILLER WOLF XMD - INDEX.JS V3 FINAL FIXED - NO CLOSED UNDEFINED
 const { default: makeWASocket, DisconnectReason, makeCacheableSignalKeyStore, useMultiFileAuthState, jidDecode } = require("@whiskeysockets/baileys")
 const P = require("pino")
@@ -43,7 +44,6 @@ async function startBot(){
   })
   sock.ev.on("creds.update", saveCreds)
   
-  // FIXED CLOSED HANDLER - NO MORE undefined
   sock.ev.on("connection.update", async(u)=>{
     const { connection, lastDisconnect }=u
     if(connection==="close"){
@@ -83,7 +83,6 @@ async function startBot(){
 }
 startBot()
 
-// WEB SERVER WITH REAL PAIR API
 const app=express()
 app.use(express.json())
 app.use(express.static(path.join(__dirname,"public")))
