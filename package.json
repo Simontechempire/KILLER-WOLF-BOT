@@ -1,69 +1,38 @@
 {
   "name": "killer-wolf-xmd",
   "version": "2.0.0-pro-max",
-  "description": "KILLER WOLF XMD - 100 Commands REAL - By Simon tech inc - Owner 2349166265317 - Anti + Auto + Group + Owner + VV",
+  "description": "KILLER WOLF XMD - 100 Commands REAL - Owner 2349166265317",
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js",
-    "pm2": "pm2 start index.js --name killer-wolf --max-memory-restart 500M",
-    "test": "node --check index.js"
-  },
-  "keywords": [
-    "whatsapp-bot",
-    "killer-wolf",
-    "killer-wolf-xmd",
-    "baileys",
-    "whatsapp-md",
-    "simon-tech",
-    "100-commands",
-    "anti-link",
-    "auto-view-status"
-  ],
-  "author": "Simon tech inc <simontechinc@gmail.com>",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/simontechinc/killer-wolf-xmd"
+    "dev": "nodemon index.js"
   },
   "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=8.0.0"
+    "node": ">=18.0.0"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.18",
     "axios": "^1.7.9",
     "express": "^4.21.2",
     "fs-extra": "^11.3.0",
-    "pino": "^9.6.0",
+    "pino": "^8.17.0",
     "qrcode-terminal": "^0.12.0",
     "moment-timezone": "^0.5.45",
-    "jimp": "^0.22.12",
-    "file-type": "^19.0.0",
+    "jimp": "0.16.13",
+    "file-type": "^16.5.4",
     "form-data": "^4.0.0",
     "node-fetch": "^2.7.0",
     "yt-search": "^2.12.1",
     "ytdl-core": "^4.11.5",
-    "yt-dlp-exec": "^1.0.1",
-    "fluent-ffmpeg": "^2.1.3",
-    "@ffmpeg-installer/ffmpeg": "^1.1.0",
-    "catbox.moe": "^1.0.0",
-    "wa-sticker-formatter": "^4.4",
-    "awesome-phonenumber": "^6.4.0",
-    "crypto": "^1.0.1",
+    "wa-sticker-formatter": "^4.4.4",
+    "awesome-phonenumber": "^5.3.0",
     "ws": "^8.18.0",
     "cheerio": "^1.0.2",
-    "node-cron": "^3.0.3",
-    "pm2": "^5.4.3",
-    "mongoose": "^8.9.5",
-    "megajs": "^1.2.1"
+    "megajs": "^1.2.1",
+    "catbox.moe": "^1.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"
-  },
-  "overrides": {
-    "ws": "^8.18.0",
-    "axios": "^1.7.9"
   }
 }
