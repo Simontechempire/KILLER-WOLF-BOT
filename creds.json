@@ -1,2 +1,1 @@
-session/
-└── creds.json  <-- THIS IS YOUR SESSION
+{"noiseKey":{"private":{"type":"Buffer","data":[...]},"public":{"type":"Buffer","data":[...]}},"pairingCode":"xxxxxx","signedIdentityKey":{"private":{"type":"Buffer","data":[...]},"public":...},"signedPreKey":{"keyId":1,"keyPair":{"private":{"type":"Buffer","data":[...]}}},"registrationId":1234,"advSecretKey":"xxxx","me":{"id":"2349166265317:xx@s.whatsapp.net","name":"KILLER WOLF"},"account":{"details":"xxxxx"},"signalIdentities":[[...]],"myAppStateKeyId":"xxxx","firstUnuploadedPreKeyId":1,"serverHasPreKeys":true,"nextPreKeyId":31,"platformType":"Chrome","lastAccountSyncTimestamp":172...}
