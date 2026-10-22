@@ -1,15 +1,14 @@
-// 🐺🔐 KILLER WOLF XMD - PAIR.JS V2 PRO MAX - PAIR CODE + QR FALLBACK
+// 🐺🔐 KILLER WOLF XMD - PAIR.JS V3 FINAL - PAIR + QR + BASE64 FULL
 const { default: makeWASocket, useMultiFileAuthState, makeCacheableSignalKeyStore } = require("@whiskeysockets/baileys")
 const P = require("pino")
 const fs = require("fs")
 const path = require("path")
 const readline = require("readline")
 
-// Ask number if not provided
 function askNumber() {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
   return new Promise(resolve => {
-    rl.question("\n🐺 Enter your WhatsApp number with country code (e.g. 2349166265317): ", ans => {
+    rl.question("\n🐺 Enter WhatsApp number (2349166265317): ", ans => {
       rl.close()
       resolve(ans.trim())
     })
@@ -18,34 +17,23 @@ function askNumber() {
 
 async function startPair() {
   let phoneNumber = process.argv[2] || process.env.PAIRING_NUMBER || ""
-
-  if(!phoneNumber) {
-    phoneNumber = await askNumber()
-  }
-
+  if(!phoneNumber || phoneNumber.includes("--")) phoneNumber = await askNumber()
   phoneNumber = phoneNumber.replace(/[^0-9]/g, "")
 
   if(phoneNumber.length < 10) {
-    console.log("❌ Invalid number. Use format: 2349166265317 (no +)")
+    console.log("❌ Use format 2349166265317 without +")
     process.exit(1)
   }
 
-  console.log(`
-╔════════════════════════════════════════╗
-║  🐺 KILLER WOLF XMD PAIRING V2       ║
-║  Number: ${phoneNumber.padEnd(24)}║
-║  Method: Pairing Code (8 digits)    ║
-╚════════════════════════════════════════╝
-`)
+  console.log(`\n╔══════════════════════════════════╗\n║ 🐺 KILLER WOLF PAIR V3 - ${phoneNumber} ║\n╚══════════════════════════════════╝\n`)
 
   const sessionPath = path.join(__dirname, "session")
   if(!fs.existsSync(sessionPath)) fs.mkdirSync(sessionPath, { recursive: true })
 
-  // Clean old creds if you want fresh
   if(process.argv.includes("--fresh")) {
     fs.rmSync(sessionPath, { recursive: true, force: true })
     fs.mkdirSync(sessionPath, { recursive: true })
-    console.log("[FRESH] Old session deleted")
+    console.log("[FRESH] Old session deleted ✅")
   }
 
   const { state, saveCreds } = await useMultiFileAuthState(sessionPath)
@@ -57,91 +45,60 @@ async function startPair() {
     },
     logger: P({ level: "silent" }),
     printQRInTerminal: false,
-    browser: ["Killer Wolf", "Chrome", "1.0"]
+    browser: ["Killer Wolf", "Chrome", "1.0"],
+    syncFullHistory: false
   })
 
   sock.ev.on("creds.update", saveCreds)
 
   if (!sock.authState.creds.registered) {
-    console.log(`[PAIR] Waiting 3s for socket...`)
-    await new Promise(r => setTimeout(r, 3500))
-
+    await new Promise(r => setTimeout(r, 3000))
     try {
       let code = await sock.requestPairingCode(phoneNumber)
-      code = code?.match(/.{1,4}/g)?.join("-") || code
-
-      console.log(`
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃  🔑 YOUR PAIR CODE: ${code.padEnd(18)}┃
-┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
-┃  1. Open WhatsApp                    ┃
-┃  2. Settings > Linked Devices        ┃
-┃  3. Link a device                    ┃
-┃  4. Link with phone number           ┃
-┃  5. Enter code: ${code}       ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
-⏳ Waiting for connection...
-
-`)
-
-      // Auto copy hint for Termux
-      try { require("child_process").execSync(`echo ${code} | termux-clipboard-set 2>/dev/null`); console.log("[COPIED] Code copied to clipboard ✅") } catch {}
-
-    } catch (e) {
+      code = code.match(/.{1,4}/g).join("-")
+      console.log(`\n┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n┃ 🔑 CODE: ${code}               ┃\n┃ 1. WhatsApp > Linked Devices  ┃\n┃ 2. Link with phone number     ┃\n┃ 3. Enter: ${code}             ┃\n┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n⏳ Waiting...\n`)
+    } catch(e) {
       console.log("[PAIR ERROR]", e.message)
-      console.log("Possible fixes:")
-      console.log("- Number must be on WhatsApp")
-      console.log("- Use number without +")
-      console.log("- Try again in 1 min (rate limit)")
-      console.log("- Or use QR method: node qr.js")
+      console.log("Rate limit? Wait 2 mins or try: node qr.js")
     }
   } else {
-    console.log("[PAIRED] Already registered ✅")
-    console.log("[INFO] If you want fresh pair, run: node pair.js --fresh")
+    console.log("[ALREADY PAIRED] ✅ Run npm start")
   }
 
-  sock.ev.on("connection.update", async (update) => {
-    const { connection, lastDisconnect } = update
-
-    if (connection === "open") {
-      console.log(`
-╔════════════════════════════════╗
-║  ✅ PAIRED SUCCESSFULLY!       ║
-╠════════════════════════════════╣
-║  Session saved:                ║
-║  ./session/creds.json          ║
-║                                ║
-║  NEXT STEPS:                   ║
-║  1. Don't delete session/      ║
-║  2. Run: npm start             ║
-║  3. For Render: upload session ║
-║     OR set SESSION env base64  ║
-╚════════════════════════════════╝
-`)
-
-      // Show base64 for easy Render deploy
+  sock.ev.on("connection.update", async (u) => {
+    const { connection, lastDisconnect } = u
+    if(connection==="open") {
+      console.log("\n✅ PAIRED SUCCESS! Generating SESSION...\n")
+      await new Promise(r => setTimeout(r, 2000))
       try {
-        const creds = fs.readFileSync(path.join(sessionPath, "creds.json"))
-        const b64 = creds.toString("base64")
-        console.log(`\n[RENDER ENV] Add this to Render > Environment > SESSION:\n${b64.slice(0,100)}... (full length ${b64.length})\nFull base64 saved to session-base64.txt`)
-        fs.writeFileSync(path.join(__dirname, "session-base64.txt"), b64)
-      } catch {}
-
-      await new Promise(r => setTimeout(r, 4000))
-      process.exit(0)
+        const credsPath = path.join(sessionPath, "creds.json")
+        if(fs.existsSync(credsPath)) {
+          const data = fs.readFileSync(credsPath)
+          const b64 = data.toString("base64")
+          // SAVE FULL to file
+          fs.writeFileSync(path.join(__dirname, "SESSION.b64"), b64)
+          fs.writeFileSync(path.join(__dirname, "session-base64.txt"), b64)
+          
+          console.log("====== RENDER SESSION ENV - COPY FULL ======")
+          console.log(b64)
+          console.log("====== END - LENGTH: " + b64.length + " ======\n")
+          console.log("✅ Also saved to SESSION.b64 and session-base64.txt")
+          console.log("1. Go to Render Dashboard > Environment")
+          console.log("2. Key: SESSION | Value: paste full base64")
+          console.log("3. Save > Manual Deploy\n")
+          console.log("LOCAL START: npm start")
+        }
+      } catch(e){ console.log("Base64 error", e.message) }
+      setTimeout(()=> process.exit(0), 2000)
     }
-
-    if (connection === "close") {
-      const code = lastDisconnect?.error?.output?.statusCode
-      console.log(`[CLOSED] Code: ${code}`)
-      if(code === 401) {
-        console.log("[LOGGED OUT] Delete session and re-pair: node pair.js --fresh")
-      } else if(code !== 408) {
-        console.log("[RETRY] Reconnecting in 5s...")
-      }
+    if(connection==="close") {
+      let code = lastDisconnect?.error?.output?.statusCode
+      let reason = lastDisconnect?.error?.output?.payload?.error || lastDisconnect?.error?.message || "Unknown"
+      console.log(`[CLOSED] Code:${code} Reason:${reason}`)
+      if(code===401) console.log("Logged out, run --fresh")
+      else if(code===408) console.log("Timed out, run again")
     }
   })
 }
 
-startPair().catch(e => console.log("[FATAL]", e))
+startPair()
