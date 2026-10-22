@@ -1,71 +1,95 @@
-// 🐺👑 KILLER WOLF XMD - INDEX.JS V2 PRO MAX - FIXED + REAL ENGINE
-const { default: makeWASocket, DisconnectReason, makeCacheableSignalKeyStore, useMultiFileAuthState, downloadMediaMessage } = require("@whiskeysockets/baileys")
+// 🐺👑 KILLER WOLF XMD - INDEX.JS V2 PRO MAX - STABLE + REAL 100 CMDS + ANTI-CRASH
+const { default: makeWASocket, DisconnectReason, makeCacheableSignalKeyStore, useMultiFileAuthState, jidDecode } = require("@whiskeysockets/baileys")
 const P = require("pino")
 const fs = require("fs")
 const path = require("path")
 const express = require("express")
+const moment = require("moment-timezone")
 
-// ===== CONFIG SAFE LOAD =====
+// ===== CONFIG SAFE =====
 let config
-try { config = require("./config.js") } catch { config = { botName: "KILLER WOLF XMD", prefix: ".", prefa: ["."], ownerNumber: "2349166265317", owner: ["2349166265317"], port: 3000, mode: "public" } }
-config.prefa = config.prefa || [config.prefix || ".", ".", "!", "#"]
-config.botName = config.botName || "KILLER WOLF XMD"
-config.owner = config.owner || [config.ownerNumber || "2349166265317"]
+try { config = require("./config.js") } catch { config = { botName: "KILLER WOLF XMD", prefix: ".", prefa: [".", "/", "!", "#"], ownerNumber: "2349166265317", owner: ["2349166265317"], port: process.env.PORT || 3000, mode: "public", version: "2.0.0 PRO MAX" } }
+config.prefa = config.prefa || [config.prefix || ".", ".", "!", "#", "/"]
+config.port = config.port || process.env.PORT || 3000
 
-// ===== GLOBAL DB =====
+// ===== GLOBAL =====
 global.config = config
-global.wolfDB = global.wolfDB || { auto: { view: false, like: false, online: true, typing: false }, anti: {}, welcome: {}, goodbye: {}, warns: {}, deleted: {} }
+global.wolfDB = global.wolfDB || { auto: { view: true, like: true, online: true, typing: false, recording: false, react: false, bio: false }, anti: {}, welcome: {}, goodbye: {}, warns: {}, deleted: {}, antivv: {} }
 global.banned = global.banned || []
+global.wolfStart = Date.now()
 
-// Load saved DB
-try {
-  const dbPath = path.join(__dirname, "database")
-  if(!fs.existsSync(dbPath)) fs.mkdirSync(dbPath, { recursive: true })
-  if(fs.existsSync(path.join(dbPath, "config.json"))) {
-    const saved = JSON.parse(fs.readFileSync(path.join(dbPath, "config.json")))
-    global.config = { ...config, ...saved }
-  }
-  if(fs.existsSync(path.join(dbPath, "auto.json"))) global.wolfDB.auto = JSON.parse(fs.readFileSync(path.join(dbPath, "auto.json")))
-  if(fs.existsSync(path.join(dbPath, "anti.json"))) global.wolfDB.anti = JSON.parse(fs.readFileSync(path.join(dbPath, "anti.json")))
-  if(fs.existsSync(path.join(dbPath, "warns.json"))) global.wolfDB.warns = JSON.parse(fs.readFileSync(path.join(dbPath, "warns.json")))
-} catch {}
+function loadDB() {
+  try {
+    const dbPath = path.join(__dirname, "database")
+    if(!fs.existsSync(dbPath)) fs.mkdirSync(dbPath, { recursive: true })
+    const files = ["auto.json","anti.json","warns.json","welcome.json","goodbye.json","banned.json","antivv.json"]
+    for(let f of files) {
+      let fp = path.join(dbPath, f)
+      if(fs.existsSync(fp)) {
+        let data = JSON.parse(fs.readFileSync(fp))
+        if(f==="auto.json") global.wolfDB.auto = { ...global.wolfDB.auto, ...data }
+        if(f==="anti.json") global.wolfDB.anti = data
+        if(f==="warns.json") global.wolfDB.warns = data
+        if(f==="welcome.json") global.wolfDB.welcome = data
+        if(f==="goodbye.json") global.wolfDB.goodbye = data
+        if(f==="banned.json") global.banned = data
+        if(f==="antivv.json") global.wolfDB.antivv = data
+      }
+    }
+  } catch(e){ console.log("[DB LOAD ERR]", e.message) }
+}
+function saveDB() {
+  try {
+    const dbPath = path.join(__dirname, "database")
+    fs.writeFileSync(path.join(dbPath, "auto.json"), JSON.stringify(global.wolfDB.auto, null, 2))
+    fs.writeFileSync(path.join(dbPath, "anti.json"), JSON.stringify(global.wolfDB.anti, null, 2))
+    fs.writeFileSync(path.join(dbPath, "warns.json"), JSON.stringify(global.wolfDB.warns, null, 2))
+    fs.writeFileSync(path.join(dbPath, "welcome.json"), JSON.stringify(global.wolfDB.welcome, null, 2))
+    fs.writeFileSync(path.join(dbPath, "goodbye.json"), JSON.stringify(global.wolfDB.goodbye, null, 2))
+    fs.writeFileSync(path.join(dbPath, "banned.json"), JSON.stringify(global.banned, null, 2))
+    fs.writeFileSync(path.join(dbPath, "antivv.json"), JSON.stringify(global.wolfDB.antivv, null, 2))
+  } catch{}
+}
+loadDB()
+setInterval(saveDB, 15000)
 
-// ===== LOAD COMMANDS - FIXED =====
+// ===== LOAD COMMANDS - PROPER =====
 const commands = new Map()
-const commandsPath = path.join(__dirname, "commands")
-
+const cmdPath = path.join(__dirname, "commands")
 function loadCommands() {
-  if (!fs.existsSync(commandsPath)) fs.mkdirSync(commandsPath, { recursive: true })
-  const files = fs.readdirSync(commandsPath)
-  let count = 0
-  for (let file of files) {
-    const full = path.join(commandsPath, file)
-    try {
-      if (fs.statSync(full).isDirectory()) {
-        for (let f of fs.readdirSync(full)) {
-          if (!f.endsWith(".js")) continue
-          delete require.cache[require.resolve(path.join(full, f))]
-          let cmd = require(path.join(full, f))
-          // Support both styles: cmd.name and cmd.command[]
-          if (cmd.name) { commands.set(cmd.name, cmd); count++ }
-          if (cmd.command && Array.isArray(cmd.command)) {
-            for(let c of cmd.command) { commands.set(c, cmd); count++ }
-          }
-        }
-      } else {
-        if (!file.endsWith(".js")) continue
+  commands.clear()
+  if (!fs.existsSync(cmdPath)) fs.mkdirSync(cmdPath, { recursive: true })
+  let totalFiles = 0, unique = new Set()
+  const walk = (dir) => {
+    for(let file of fs.readdirSync(dir)) {
+      let full = path.join(dir, file)
+      if(fs.statSync(full).isDirectory()) { walk(full); continue }
+      if(!file.endsWith(".js")) continue
+      try {
         delete require.cache[require.resolve(full)]
         let cmd = require(full)
-        if (cmd.name) { commands.set(cmd.name, cmd); count++ }
-        if (cmd.command && Array.isArray(cmd.command)) {
-          for(let c of cmd.command) { commands.set(c, cmd); count++ }
+        if(!cmd) continue
+        let names = []
+        if(cmd.name) names.push(cmd.name.toLowerCase())
+        if(Array.isArray(cmd.command)) names.push(...cmd.command.map(c=>c.toLowerCase()))
+        if(Array.isArray(cmd.alias)) names.push(...cmd.alias.map(c=>c.toLowerCase()))
+        if(names.length===0) names = [path.basename(file, ".js").toLowerCase()]
+        for(let n of names) {
+          if(!n) continue
+          commands.set(n, cmd)
+          unique.add(cmd.name || n)
         }
-      }
-    } catch (e) { console.log(`[CMD ERROR] ${file}:`, e.message) }
+        totalFiles++
+      } catch(e){ console.log(`[CMD ERR] ${file}: ${e.message}`) }
+    }
   }
-  console.log(`[KILLER WOLF] Loaded ${count} command entries (${commands.size} unique) ✅`)
+  walk(cmdPath)
+  console.log(`\x1b[31m╭── [ KILLER WOLF CMDS ] ──\x1b[0m`)
+  console.log(`\x1b[31m│ Files: ${totalFiles} | Unique Cmds: ${unique.size} | Aliases: ${commands.size}\x1b[0m`)
+  console.log(`\x1b[31m╰───────────────────────────\x1b[0m`)
 }
 loadCommands()
+global.reloadCommands = loadCommands
 
 // ===== SESSION =====
 async function getAuth() {
@@ -78,200 +102,264 @@ async function getAuth() {
   }
 }
 
+function runtime(sec) {
+  sec = Number(sec); let d=Math.floor(sec/(3600*24)), h=Math.floor(sec%(3600*24)/3600), m=Math.floor(sec%3600/60), s=Math.floor(sec%60)
+  return `${d?d+"d ":""}${h?h+"h ":""}${m?m+"m ":""}${s}s`.trim()||"0s"
+}
+
 async function startBot() {
   const { state, saveCreds } = await getAuth()
-
   const sock = makeWASocket({
-    auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, P().child({ level: "fatal", stream: "store" })) },
+    auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, P().child({ level: "fatal" })) },
     logger: P({ level: "silent" }),
     browser: ["Killer Wolf", "Chrome", "1.0"],
     markOnlineOnConnect: global.wolfDB.auto.online !== false,
     syncFullHistory: false,
     printQRInTerminal: false,
+    getMessage: async (key) => { return global.wolfDB.deleted?.[key.id]?.content ? { conversation: "deleted" } : undefined }
   })
-
   sock.ev.on("creds.update", saveCreds)
 
-  sock.ev.on("connection.update", async (update) => {
-    const { connection, lastDisconnect } = update
-    if (connection === "close") {
-      const reason = lastDisconnect?.error?.output?.statusCode
-      console.log(`[CLOSED] Reason: ${reason}`)
-      if (reason !== DisconnectReason.loggedOut) {
-        console.log("[RECONNECT] Restarting in 3s...")
-        setTimeout(startBot, 3000)
-      } else {
-        console.log("[LOGGED OUT] Delete session/ folder and re-pair")
-      }
-    } else if (connection === "open") {
-      console.log(`[ONLINE] ${global.config.botName} CONNECTED ✅`)
+  // Connection
+  sock.ev.on("connection.update", async (u) => {
+    const { connection, lastDisconnect } = u
+    if(connection==="close") {
+      const code = lastDisconnect?.error?.output?.statusCode
+      console.log(`[CLOSED] ${code} | ${DisconnectReason[code] || code}`)
+      if(code !== DisconnectReason.loggedOut) setTimeout(startBot, 3000)
+      else console.log("[LOGGED OUT] Delete session/ and re-pair with: node pair.js")
+    }
+    if(connection==="open") {
+      console.log(`\n🐺 ${config.botName} CONNECTED - ${moment().tz("Africa/Lagos").format("HH:mm:ss")} ✅\nPrefix: ${config.prefa.join(" ")} | Mode: ${config.mode} | Owner: ${config.owner.join(",")}\n`)
       try {
-        await sock.sendMessage(global.config.owner[0] + "@s.whatsapp.net", {
-          text: `*🐺 ${global.config.botName} ONLINE ✅*\n\n*Prefix:* ${global.config.prefa[0]}\n*Commands:* 100\n*Mode:* ${global.config.mode}\n*Owner:* ${global.config.owner.join(", ")}\n*Uptime:* ${Math.floor(process.uptime()/60)}m\n\n*Type:* ${global.config.prefa[0]}menu\n\n🐺 KILLER WOLF XMD`
-        })
-      } catch {}
-      // Auto bio interval
+        await sock.sendMessage(config.owner[0]+"@s.whatsapp.net", { text: `*🐺 ${config.botName} ONLINE ✅*\n\n*Prefix:* ${config.prefa[0]}\n*Commands:* ${commands.size} aliases (${[...new Set([...commands.values()].map(c=>c.name))].length} unique)\n*Mode:* ${config.mode}\n*Uptime:* ${runtime(process.uptime())}\n*Time:* ${moment().tz("Africa/Lagos").format("YYYY-MM-DD HH:mm:ss")}\n\n*Type:* ${config.prefa[0]}menu\n\n🐺 KILLER WOLF XMD V2` })
+      } catch{}
       if(global.wolfDB.auto.bio) {
-        setInterval(async () => {
-          await sock.updateProfileStatus(`🐺 ${global.config.botName} | ${new Date().toLocaleTimeString()} | ${Object.keys(await sock.groupFetchAllParticipating().catch(()=>({}))).length} Groups | ${global.config.prefa[0]}menu`).catch(()=>{})
+        setInterval(async()=>{
+          try {
+            let gCount = Object.keys(await sock.groupFetchAllParticipating().catch(()=>({}))).length
+            await sock.updateProfileStatus(`🐺 ${config.botName} | ${moment().tz("Africa/Lagos").format("HH:mm")} | ${gCount} Groups | ${config.prefa[0]}menu | V2`)
+          } catch{}
         }, 60000)
       }
     }
   })
 
-  // ===== ANTI-DELETE RECOVERY =====
-  sock.ev.on("messages.update", async (updates) => {
-    for(let update of updates) {
-      if(update.update.message === null && update.key) { // deleted
-        const saved = global.wolfDB.deleted?.[update.key.id]
-        if(saved && global.wolfDB.anti?.[saved.jid]?.antidelete) {
-          try {
-            await sock.sendMessage(saved.jid, { text: `🛡️ *ANTIDELETE RECOVERED*\n\n👤 @${saved.sender.split('@')[0]}\n🕒 ${new Date(saved.time).toLocaleString()}\n\n*Recovering message...*`, mentions: [saved.sender] })
-            if(saved.content) await sock.sendMessage(saved.jid, { forward: { key: saved.key, message: saved.content } })
-          } catch {}
-        }
-      }
-    }
-  })
-
-  sock.ev.on("messages.upsert", async (m) => {
+  // ===== ANTIDELETE STORE =====
+  sock.ev.on("messages.upsert", async (chat) => {
     try {
-      let msg = m.messages[0]
-      if (!msg.message) return
-      if (msg.key.fromMe) return
-      const from = msg.key.remoteJid
-      const sender = msg.key.participant || from
-      const isGroup = from.endsWith("@g.us")
+      let msg = chat.messages[0]
+      if(!msg || !msg.message) return
+      let type = Object.keys(msg.message)[0]
+      if(["protocolMessage","senderKeyDistributionMessage"].includes(type)) return // skip
+      let from = msg.key.remoteJid
+      let sender = msg.key.participant || from
+      let isGroup = from.endsWith("@g.us")
 
-      // ===== AUTO DB SAVE MESSAGE FOR ANTIDELETE =====
-      if(global.wolfDB.anti?.[from]?.antidelete) {
-        global.wolfDB.deleted[msg.key.id] = { content: msg.message, jid: from, sender, time: Date.now(), key: msg.key }
-        // Keep only 100
-        if(Object.keys(global.wolfDB.deleted).length > 100) delete global.wolfDB.deleted[Object.keys(global.wolfDB.deleted)[0]]
+      // Save for antidelete if enabled
+      if(global.wolfDB.anti?.[from]?.antidelete || global.wolfDB.antivv?.[from]) {
+        global.wolfDB.deleted[msg.key.id] = { content: msg.message, jid: from, sender, time: Date.now(), key: msg.key, type }
+        if(Object.keys(global.wolfDB.deleted).length>300) delete global.wolfDB.deleted[Object.keys(global.wolfDB.deleted)[0]]
       }
 
-      // ===== AUTO VIEW STATUS =====
-      if(msg.key.remoteJid === "status@broadcast" && global.wolfDB.auto.view) {
-        await sock.readMessages([msg.key]).catch(()=>{})
-        if(global.wolfDB.auto.like) await sock.sendMessage(from, { react: { text: "🔥", key: msg.key } }).catch(()=>{})
+      // ===== STATUS - AUTO VIEW + LIKE =====
+      if(from==="status@broadcast") {
+        if(global.wolfDB.auto.view) await sock.readMessages([msg.key]).catch(()=>{})
+        if(global.wolfDB.auto.like) {
+          let emojis = ["🔥","❤️","🐺","👑","💯","⚡","😍","🫡"]
+          await sock.sendMessage(from, { react: { text: emojis[Math.floor(Math.random()*emojis.length)], key: msg.key } }, { statusJidList: [sender] }).catch(async()=>{ await sock.sendMessage(from, { react: { text: "🔥", key: msg.key } }).catch(()=>{}) })
+        }
+        return
       }
 
-      // ===== ANTI ENGINE - REAL =====
-      const anti = global.wolfDB.anti?.[from]
-      if(anti && isGroup) {
-        const body = msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || ""
-        let meta, isAdmin = false, botAdmin = false
+      // ===== ANTIVV - VIEWONCE REVEAL =====
+      if((msg.message.viewOnceMessage || msg.message.viewOnceMessageV2 || msg.message.viewOnceMessageV2Extension) && global.wolfDB.antivv?.[from]) {
         try {
-          meta = await sock.groupMetadata(from)
-          isAdmin = !!meta.participants.find(p=> p.id===sender)?.admin
-          botAdmin = !!meta.participants.find(p=> p.id.includes(sock.user.id.split(':')[0]))?.admin
-        } catch {}
-        if(!isAdmin && botAdmin && body) {
-          // Antilink
-          if((anti.antilink || anti.antilinkkick || anti.antilinkwarn) && /(chat\.whatsapp\.com|https?:\/\/|www\.|wa\.me|t\.me|instagram\.com|tiktok\.com)/i.test(body)) {
-            await sock.sendMessage(from, { delete: msg.key }).catch(()=>{})
-            if(anti.antilinkkick) await sock.groupParticipantsUpdate(from, [sender], "remove").catch(()=>{})
-            else if(anti.antilinkwarn) {
-              global.wolfDB.warns[from] = global.wolfDB.warns[from] || {}
-              global.wolfDB.warns[from][sender] = global.wolfDB.warns[from][sender] || { count: 0, reasons: [] }
-              global.wolfDB.warns[from][sender].count++
-              await sock.sendMessage(from, { text: `⚠️ @${sender.split('@')[0]} Links not allowed! Warn ${global.wolfDB.warns[from][sender].count}/3`, mentions: [sender] })
+          let vv = msg.message.viewOnceMessage || msg.message.viewOnceMessageV2 || msg.message.viewOnceMessageV2Extension
+          let inner = vv.message || vv
+          let caption = inner.imageMessage?.caption || inner.videoMessage?.caption || "*ViewOnce Revealed*"
+          await sock.sendMessage(from, { text: `👁️ *ANTI-VV REVEALED*\n👤 @${sender.split("@")[0]}\n\n${caption}`, mentions:[sender] }, { quoted: msg })
+          await sock.sendMessage(from, { forward: { key: msg.key, message: vv } }).catch(()=>{})
+        } catch{}
+      }
+
+      // ===== ANTI ENGINE =====
+      let anti = global.wolfDB.anti?.[from]
+      if(anti && isGroup && !msg.key.fromMe) {
+        let body = msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || msg.message.videoMessage?.caption || ""
+        try {
+          let meta = await sock.groupMetadata(from).catch(()=>null)
+          if(meta) {
+            let isAdmin = !!meta.participants.find(p=> p.id===sender || p.id===jidDecode(sender)?.user+"@s.whatsapp.net" || p.id.includes(sender.split("@")[0]))?.admin
+            let botJid = sock.user.id.split(":")[0]+"@s.whatsapp.net"
+            let botAdmin = !!meta.participants.find(p=> p.id===botJid || p.id.includes(sock.user.id.split(":")[0]))?.admin
+            if(!isAdmin && botAdmin && body) {
+              // Antilink
+              if((anti.antilink || anti.antilinkkick || anti.antilinkwarn) && /(chat\.whatsapp\.com\/|https?:\/\/|www\.|wa\.me\/|t\.me\/|instagram\.com|tiktok\.com|facebook\.com)/i.test(body)) {
+                await sock.sendMessage(from, { delete: msg.key }).catch(()=>{})
+                if(anti.antilinkkick) await sock.groupParticipantsUpdate(from, [sender], "remove").catch(()=>{})
+                else {
+                  global.wolfDB.warns[from] = global.wolfDB.warns[from] || {}
+                  global.wolfDB.warns[from][sender] = (global.wolfDB.warns[from][sender]||0)+1
+                  if(global.wolfDB.warns[from][sender]>=3) { await sock.groupParticipantsUpdate(from,[sender],"remove").catch(()=>{}); delete global.wolfDB.warns[from][sender] }
+                  else await sock.sendMessage(from, { text: `⚠️ @${sender.split("@")[0]} No links! Warn ${global.wolfDB.warns[from][sender]}/3`, mentions:[sender] })
+                }
+              }
+              if(anti.antibadword && (anti.words||["fuck","shit"]).some(w=> body.toLowerCase().includes(w.toLowerCase()))) await sock.sendMessage(from, { delete: msg.key }).catch(()=>{})
+              if(anti.antisticker && msg.message.stickerMessage) await sock.sendMessage(from, { delete: msg.key }).catch(()=>{})
+              if(anti.antitag && (msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.length>5 || msg.message.extendedTextMessage?.contextInfo?.isForwarded)) await sock.sendMessage(from, { delete: msg.key }).catch(()=>{})
             }
           }
-          if(anti.antibadword && anti.badwords?.some(w=> body.toLowerCase().includes(w))) {
-            await sock.sendMessage(from, { delete: msg.key }).catch(()=>{})
-          }
-          if(anti.antisticker && msg.message.stickerMessage) await sock.sendMessage(from, { delete: msg.key }).catch(()=>{})
-          if(anti.antitag && (msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.length > 10)) await sock.sendMessage(from, { delete: msg.key }).catch(()=>{})
-        }
+        } catch{}
       }
 
-      // ===== AUTO REACT =====
-      if(global.wolfDB.auto.react) {
-        const emojis = ['🐺','🔥','❤️','👑','⚡','💯']
-        await sock.sendMessage(from, { react: { text: emojis[Math.floor(Math.random()*emojis.length)], key: msg.key } }).catch(()=>{})
-      }
-
-      // ===== PRESENCE =====
+      // ===== PRESENCE + AUTO REACT =====
       if(global.wolfDB.auto.typing) await sock.sendPresenceUpdate('composing', from).catch(()=>{})
       if(global.wolfDB.auto.recording) await sock.sendPresenceUpdate('recording', from).catch(()=>{})
-      if(global.wolfDB.auto.online) await sock.sendPresenceUpdate('available', from).catch(()=>{})
+      if(global.wolfDB.auto.react && !isGroup) {
+        let em = ['🐺','🔥','❤️','👑']; await sock.sendMessage(from, { react: { text: em[Math.floor(Math.random()*em.length)], key: msg.key } }).catch(()=>{})
+      }
 
-      // ===== COMMAND PARSE - FIXED =====
-      const type = Object.keys(msg.message)[0]
-      let body = msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || msg.message.videoMessage?.caption || ""
-      if(!body) return
-
-      // Check banned
+      // ===== COMMAND =====
+      let b = msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || msg.message.videoMessage?.caption || ""
+      if(!b) return
       if(global.banned.includes(sender) || global.banned.includes(from)) return
+      let pref = config.prefa.find(p=> b.startsWith(p))
+      if(!pref) return
+      if(config.mode==="private" && !config.owner.includes(sender.split("@")[0]) && !config.owner.includes(jidDecode(sender)?.user)) return
 
-      // Prefix check - supports multiple
-      let prefix = global.config.prefa.find(p => body.startsWith(p))
-      if (!prefix) return
-
-      // Mode check
-      if(global.config.mode === 'private' && !global.config.owner.includes(sender.split('@')[0]) && !global.config.owner.includes(from.split('@')[0])) return
-
-      const args = body.slice(prefix.length).trim().split(/ +/)
-      const cmdName = args.shift().toLowerCase()
-      const text = args.join(" ")
-
+      let args = b.slice(pref.length).trim().split(/ +/)
+      let cmdName = args.shift()?.toLowerCase()
+      if(!cmdName) return
+      let text = args.join(" ")
       let cmd = commands.get(cmdName)
-      if (!cmd) return
+      if(!cmd) return
 
-      console.log(`[CMD] ${cmdName} from ${sender} in ${isGroup ? from : 'private'}`)
+      console.log(`\x1b[31m[CMD]\x1b[0m ${cmdName} | ${sender.split("@")[0]} | ${isGroup ? from : "private"} | ${text.slice(0,20)}`)
 
-      // Reply function
       const reply = async (txt, opt={}) => {
         return await sock.sendMessage(from, { text: txt, ...opt }, { quoted: msg })
       }
 
-      // Execute with both old and new signatures
-      try {
-        if(cmd.execute.length === 4) { // old style (sock, msg, args, {from,config,commands})
-          await cmd.execute(sock, msg, args, { from, config: global.config, commands })
-        } else { // new style (sock, m, {command, text, reply})
-          await cmd.execute(sock, msg, { command: cmdName, text, args, reply, from, sender, isGroup, prefix, config: global.config, commands })
-        }
-      } catch (e) {
-        console.log("[CMD EXEC ERROR]", e)
-        await reply(`❌ Error: ${e.message}\n\n🐺`).catch(()=>{})
+      // Context
+      const ctx = {
+        command: cmdName, text, args, reply, from, sender,
+        isGroup, isAdmin: false, isBotAdmin: false, isOwner: config.owner.includes(sender.split("@")[0]),
+        prefix: pref, config, commands,
+        sock, msg,
+        runtime, moment
       }
 
-    } catch (e) {
-      console.log("[MSG ERROR]", e)
+      try {
+        if(isGroup) {
+          try {
+            let meta = await sock.groupMetadata(from)
+            ctx.groupMetadata = meta
+            ctx.isAdmin = !!meta.participants.find(p=> p.id===sender || p.id.includes(sender.split("@")[0]))?.admin
+            ctx.isBotAdmin = !!meta.participants.find(p=> p.id.includes(sock.user.id.split(":")[0]))?.admin
+          } catch{}
+        }
+        // Support both signatures
+        if(cmd.execute) {
+          if(cmd.execute.length >=4) await cmd.execute(sock, msg, args, { from, sender, isGroup, config, commands, reply, text, prefix: pref, runtime })
+          else await cmd.execute(sock, msg, ctx)
+        } else if(cmd.run) await cmd.run(ctx)
+      } catch(e){
+        console.log("[CMD EXEC ERR]", e)
+        await reply(`❌ Error: ${e.message}`).catch(()=>{})
+      }
+
+    } catch(e){ console.log("[MSG ERR]", e.message) }
+  })
+
+  // ===== ANTI-DELETE RECOVERY (protocol) =====
+  sock.ev.on("messages.update", async(updates)=>{
+    for(let u of updates) {
+      if(u.update.message===null && u.key) {
+        let saved = global.wolfDB.deleted?.[u.key.id]
+        if(saved && global.wolfDB.anti?.[saved.jid]?.antidelete) {
+          try {
+            await sock.sendMessage(saved.jid, { text: `🛡️ *ANTIDELETE*\n👤 @${saved.sender.split("@")[0]} deleted a message`, mentions:[saved.sender] })
+            if(saved.content) await sock.sendMessage(saved.jid, { forward: { key: saved.key, message: saved.content } })
+          } catch{}
+        }
+      }
     }
   })
 
-  // ===== GROUP PARTICIPANTS UPDATE - WELCOME/GOODBYE =====
-  sock.ev.on("group-participants.update", async (update) => {
+  // ===== WELCOME / GOODBYE =====
+  sock.ev.on("group-participants.update", async (ev)=>{
     try {
-      const { id, participants, action } = update
-      if(action === 'add' && global.wolfDB.welcome[id]) {
-        let txt = global.wolfDB.welcome[id].replace(/@user/g, `@${participants[0].split('@')[0]}`).replace(/@group/g, (await sock.groupMetadata(id).catch(()=>({subject: id}))).subject)
+      let { id, participants, action } = ev
+      if(action==="add" && global.wolfDB.welcome[id]) {
+        let meta = await sock.groupMetadata(id).catch(()=>({subject:id}))
+        let txt = global.wolfDB.welcome[id].replace(/@user/g, `@${participants[0].split("@")[0]}`).replace(/@group/g, meta.subject).replace(/@desc/g, meta.desc||"")
         await sock.sendMessage(id, { text: txt, mentions: participants })
       }
-      if(action === 'remove' && global.wolfDB.goodbye[id]) {
-        let txt = global.wolfDB.goodbye[id].replace(/@user/g, `@${participants[0].split('@')[0]}`)
+      if(action==="remove" && global.wolfDB.goodbye[id]) {
+        let txt = global.wolfDB.goodbye[id].replace(/@user/g, `@${participants[0].split("@")[0]}`)
         await sock.sendMessage(id, { text: txt, mentions: participants })
       }
-    } catch {}
+    } catch{}
   })
+
+  // ===== CALL REJECT (optional) =====
+  sock.ev.on("call", async(calls)=>{
+    for(let call of calls) {
+      if(global.wolfDB.auto.anticall) {
+        await sock.rejectCall(call.id, call.from).catch(()=>{})
+        await sock.sendMessage(call.from, { text: "*📵 Call rejected - Bot doesn't accept calls*" })
+      }
+    }
+  })
+
+  return sock
 }
 
 startBot()
 
-// ===== WEB SERVER =====
+// ===== WEB SERVER - WITH API =====
 const app = express()
+app.use(express.json())
 app.use(express.static(path.join(__dirname, "public")))
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public/index.html"), (err) => {
-    if(err) res.send(`<h1>🐺 KILLER WOLF XMD ONLINE ✅</h1><p>Bot: ${global.config.botName}</p><p>Commands: 100</p><p>Uptime: ${Math.floor(process.uptime()/60)}m</p>`)
+
+app.get("/", (req,res)=>{
+  res.sendFile(path.join(__dirname, "public/index.html"), (err)=>{
+    if(err) res.send(`<h1>🐺 ${config.botName} ONLINE ✅</h1><p>Uptime: ${runtime(process.uptime())}</p>`)
   })
 })
-app.get("/ping", (req, res) => res.send("KILLER WOLF ONLINE 🐺"))
-app.get("/commands", (req, res) => res.json({ total: commands.size, list: [...commands.keys()] }))
 
-app.listen(config.port || 3000, () => {
-  console.log(`[WEB] Dashboard running on port ${config.port || 3000}`)
+app.get("/ping", (req,res)=> res.send("KILLER WOLF ONLINE 🐺"))
+app.get("/pair", (req,res)=> res.sendFile(path.join(__dirname, "public/pair.html"), (err)=> res.send("Use: node pair.js 234xxx")))
+app.get("/qr", (req,res)=> res.sendFile(path.join(__dirname, "public/qr.html"), (err)=> res.send("Use: node qr.js")))
+
+app.get("/api/status", (req,res)=>{
+  res.json({
+    connected: true,
+    botName: config.botName,
+    owner: config.owner[0],
+    ownerNumber: config.ownerNumber,
+    prefix: config.prefa[0],
+    prefa: config.prefa,
+    totalCommands: [...new Set([...commands.values()].map(c=>c.name||""))].length,
+    totalAliases: commands.size,
+    list: [...new Set([...commands.values()].map(c=>c.name))],
+    uptime: runtime(process.uptime()),
+    uptimeSec: process.uptime(),
+    runtime: runtime(Date.now()/1000 - global.wolfStart/1000),
+    mode: config.mode,
+    version: config.version || "2.0.0 PRO MAX",
+    banner: config.banner,
+    memory: `${(process.memoryUsage().heapUsed/1024/1024).toFixed(2)} MB / ${(process.memoryUsage().rss/1024/1024).toFixed(2)} MB`,
+    ram: `${(process.memoryUsage().heapUsed/1024/1024).toFixed(2)} MB`,
+    platform: process.platform,
+    host: "RENDER",
+    auto: global.wolfDB.auto,
+    antiCount: Object.keys(global.wolfDB.anti).length,
+    bannedCount: global.banned.length
+  })
 })
+
+app.get("/commands", (req,res)=> res.json({ totalUnique: [...new Set([...commands.values()].map(c=>c.name))].length, totalAliases: commands.size, list: [...commands.keys()] }))
+
+app.listen(config.port, ()=> console.log(`[WEB] Dashboard: http://localhost:${config.port} | /api/status ✅`))
