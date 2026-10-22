@@ -1,4 +1,4 @@
-// 🐺👑 KILLER WOLF XMD - INDEX.JS V3 FINAL - REAL PAIR API + STABLE
+// 🐺👑 KILLER WOLF XMD - INDEX.JS V3 FINAL FIXED - NO CLOSED UNDEFINED
 const { default: makeWASocket, DisconnectReason, makeCacheableSignalKeyStore, useMultiFileAuthState, jidDecode } = require("@whiskeysockets/baileys")
 const P = require("pino")
 const fs = require("fs")
@@ -31,7 +31,7 @@ loadCommands()
 global.reloadCommands=loadCommands
 
 async function getAuth(){
-  try{ const { getSession }=require("./lib/handler.js"); return await getSession() }catch{ const { state, saveCreds }=await useMultiFileAuthState(path.join(__dirname,"session")); return { state, saveCreds } }
+  try{ const { getSession }=require("./lib/handler.js"); return await getSession() }catch(e){ console.log("[AUTH FALLBACK]",e.message); const { state, saveCreds }=await useMultiFileAuthState(path.join(__dirname,"session")); return { state, saveCreds } }
 }
 function runtime(sec){ sec=Number(sec); let d=Math.floor(sec/(3600*24)), h=Math.floor(sec%(3600*24)/3600), m=Math.floor(sec%3600/60), s=Math.floor(sec%60); return `${d?d+"d ":""}${h?h+"h ":""}${m?m+"m ":""}${s}s`.trim()||"0s" }
 
@@ -42,10 +42,26 @@ async function startBot(){
     logger:P({level:"silent"}), browser:["Killer Wolf","Chrome","1.0"], markOnlineOnConnect:global.wolfDB.auto.online!==false, syncFullHistory:false, printQRInTerminal:false
   })
   sock.ev.on("creds.update", saveCreds)
+  
+  // FIXED CLOSED HANDLER - NO MORE undefined
   sock.ev.on("connection.update", async(u)=>{
     const { connection, lastDisconnect }=u
-    if(connection==="close"){ const code=lastDisconnect?.error?.output?.statusCode; console.log(`[CLOSED] ${code} | ${code}`); if(code!==DisconnectReason.loggedOut) setTimeout(startBot,3000); else console.log("[LOGGED OUT] node pair.js --fresh") }
-    if(connection==="open"){ console.log(`\n🐺 ${config.botName} CONNECTED ✅ | ${moment().tz("Africa/Lagos").format("HH:mm:ss")}\n`); try{ await sock.sendMessage(config.owner[0]+"@s.whatsapp.net",{text:`*🐺 ${config.botName} ONLINE ✅*\nPrefix: ${config.prefa[0]}\nCmds: ${commands.size}\n${config.prefa[0]}menu`}) }catch{} }
+    if(connection==="close"){
+      let statusCode = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.output?.payload?.statusCode || lastDisconnect?.error?.status || "unknown"
+      let reason = lastDisconnect?.error?.message || lastDisconnect?.error?.output?.payload?.error || "Unknown"
+      console.log(`[CLOSED] Code: ${statusCode} | Reason: ${reason}`)
+      if(statusCode == 401 || statusCode == 405 || String(reason).toLowerCase().includes("logged out") || String(reason).toLowerCase().includes("conflict")){
+        console.log("[LOGGED OUT] Delete session folder and re-pair: node pair.js 2349166265317 --fresh")
+        console.log("[RENDER] Also reset ENV SESSION with new base64")
+      } else {
+        console.log("[RECONNECT] Retrying in 3s...")
+        setTimeout(startBot, 3000)
+      }
+    }
+    if(connection==="open"){
+      console.log(`\n🐺 ${config.botName} CONNECTED ✅ | ${moment().tz("Africa/Lagos").format("HH:mm:ss")}\n`)
+      try{ await sock.sendMessage(config.owner[0]+"@s.whatsapp.net",{text:`*🐺 ${config.botName} ONLINE ✅*\nPrefix: ${config.prefa[0]}\nCmds: ${commands.size}\n${config.prefa[0]}menu`}) }catch{}
+    }
   })
 
   sock.ev.on("messages.upsert", async(chat)=>{
@@ -67,7 +83,7 @@ async function startBot(){
 }
 startBot()
 
-// ===== WEB SERVER WITH REAL PAIR API =====
+// WEB SERVER WITH REAL PAIR API
 const app=express()
 app.use(express.json())
 app.use(express.static(path.join(__dirname,"public")))
@@ -75,8 +91,6 @@ app.use(express.static(path.join(__dirname,"public")))
 app.get("/",(req,res)=>{ res.sendFile(path.join(__dirname,"public","index.html"),(err)=>{ if(err) res.send(`<h1>🐺 ${config.botName} ONLINE ✅</h1><p><a href="/api/pair?number=234...">Generate Pair</a></p>`) }) })
 app.get("/ping",(req,res)=> res.send("KILLER WOLF ONLINE 🐺"))
 
-// ===== REAL PAIR CODE API - GENERATES REAL BAILEYS 8-DIGIT CODE =====
-let pairSockCache=null
 app.get("/api/pair", async(req,res)=>{
   let number=req.query.number?.replace(/[^0-9]/g,"")
   if(!number||number.length<10) return res.json({ error:"Invalid number. Use 2349166265317 without +" })
@@ -95,10 +109,8 @@ app.get("/api/pair", async(req,res)=>{
     let rawCode=await sock.requestPairingCode(number)
     let prettyCode=rawCode?.match(/.{1,4}/g)?.join("-") || rawCode
     console.log(`[PAIR SUCCESS] ${number} => ${prettyCode}`)
-    pairSockCache=sock
-    // Listen for open to auto-save session
     sock.ev.on("connection.update", async(u)=>{
-      if(u.connection==="open"){ console.log(`[PAIR] ${number} CONNECTED ✅`); await new Promise(r=> setTimeout(r,2000)); try{ let data=fs.readFileSync(path.join(sessionPath,"creds.json")); let b64=data.toString("base64"); fs.writeFileSync(path.join(__dirname,"SESSION.b64"),b64); console.log(`[SESSION B64 SAVED] Length ${b64.length}`) }catch{} }
+      if(u.connection==="open"){ console.log(`[PAIR] ${number} CONNECTED ✅`); await new Promise(r=> setTimeout(r,2000)); try{ let data=fs.readFileSync(path.join(sessionPath,"creds.json")); let b64=data.toString("base64"); fs.writeFileSync(path.join(__dirname,"SESSION.b64"),b64); console.log(`[SESSION B64 SAVED] Length ${b64.length} -> Use for Render ENV SESSION`) }catch(e){ console.log("[B64 SAVE ERR]",e.message) } }
     })
     return res.json({ success:true, code:prettyCode, raw:rawCode, number, message:"Enter this code in WhatsApp > Linked Devices > Link with phone number" })
   }catch(e){ console.log("[PAIR ERROR]",e.message); return res.json({ error:e.message, hint:"Wait 2 mins if rate limited, or try again" }) }
