@@ -2,7 +2,7 @@
 
 > The Ultimate WhatsApp Multi-Device Bot - 2026 Edition
 
-![Killer Wolf](https://your-logo-link.png)
+![Killer Wolf](https://ibb.co/ynjDCV9L)
 
 ### 🔥 ABOUT KILLER WOLF
 **KILLER WOLF** is a powerful, fast and 100% anti-crash WhatsApp MD Bot built for performance. Designed with cyber-tech aesthetics and unstoppable stability.
